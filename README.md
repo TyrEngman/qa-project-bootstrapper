@@ -115,6 +115,80 @@ Enter a name for your new QA project:
 
 Type the project name (e.g. my_new_qa_project) and press Enter.
 
+## Presets overview
+
+The **QA Project Bootstrapper** can generate different types of QA projects using the `--preset` flag.
+
+| Preset   | Command example                         | Focus                          | README content                                             | CI by default |
+|----------|-----------------------------------------|--------------------------------|-----------------------------------------------------------|--------------|
+| default  | `python qa_init.py my_project`         | Generic pytest starter         | Basic pytest project, ready to evolve to API/UI/integration | ✅ GitHub Actions |
+| api      | `python qa_init.py my_api --preset api`| HTTP API testing (pytest)      | API-oriented README, healthcheck example, `ApiClient` helper | ✅ GitHub Actions |
+| ui       | `python qa_init.py my_ui --preset ui`  | Web UI / E2E testing structure | UI-oriented README, Page Object skeleton (`LoginPage`)   | ✅ GitHub Actions |
+
+> You can disable CI generation for any preset using the `--no-ci` flag.
+
+---
+
+### Usage examples
+
+#### 1. Default pytest project
+
+```
+python qa_init.py my_project
+cd my_project
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+pytest -v
+2. API testing starter (--preset api)
+
+python qa_init.py my_api_project --preset api
+cd my_api_project
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+pytest -v
+This preset includes:
+
+an ApiClient helper in tests/utils/api_client.py
+
+a sample healthcheck test:
+
+marked with @pytest.mark.smoke and @pytest.mark.api
+
+using API_BASE_URL env var (defaults to https://httpbin.org)
+
+3. UI testing starter (--preset ui)
+
+python qa_init.py my_ui_project --preset ui
+cd my_ui_project
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+pytest -v
+This preset includes:
+
+a Page Object skeleton in tests/pages/login_page.py
+
+a sample UI test placeholder:
+
+marked with @pytest.mark.smoke and @pytest.mark.ui
+
+ready to be wired to Playwright, Selenium, or other UI driver
+
+CI toggle: --no-ci
+By default, all presets generate a GitHub Actions workflow at:
+
+
+
+.github/workflows/ci.yml
+If you want a project without CI configured, use:
+
+
+python qa_init.py my_project --no-ci
+python qa_init.py my_api_project --preset api --no-ci
+python qa_init.py my_ui_project --preset ui --no-ci
+
 5. What gets generated
 
 A typical generated project (default preset) looks like this:
