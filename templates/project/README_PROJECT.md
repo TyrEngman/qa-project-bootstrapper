@@ -81,7 +81,7 @@ Add markers
 The default preset is intentionally simple: it gives you a safe base to plug in any testing style you need.
 
 5. Example: simple test
-python
+
 
 def test_sample():
     # Replace this example with your real scenario

@@ -251,7 +251,7 @@ GitLab CI
 Azure Pipelines / Jenkins
 
 5. Example: minimal Playwright-style test
-python
+
 
 import pytest
 
@@ -262,7 +262,7 @@ def test_ui_sample_placeholder():
     assert True
 Once you wire Playwright’s fixtures, this could evolve to:
 
-python
+
 
 def test_home_page_title(page):
     page.goto("https://example.com")

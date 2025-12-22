@@ -1,341 +1,337 @@
-from pathlib import Path
+from __future__ import annotations
+
 import argparse
+from pathlib import Path
+from textwrap import dedent
 
-# === Paths base ===
 
-# Carpeta raíz del bootstrapper (donde vive qa_init.py)
+# --------------------------------------------------------------------
+# Rutas base
+# --------------------------------------------------------------------
 BASE_DIR = Path(__file__).parent
-
-# Carpeta /templates
-TEMPLATES_ROOT = BASE_DIR / "templates"
-
-# Carpeta /templates/project
-PROJECT_TEMPLATES_DIR = TEMPLATES_ROOT / "project"
-
-# Rutas de templates principales
-README_TEMPLATE_PATH = PROJECT_TEMPLATES_DIR / "README_PROJECT.md"
-PYTEST_INI_TEMPLATE_PATH = PROJECT_TEMPLATES_DIR / "pytest.ini"
-REQUIREMENTS_TEMPLATE_PATH = TEMPLATES_ROOT / "requirements.txt"
-
-# Rutas de templates específicos por preset
-README_API_TEMPLATE_PATH = PROJECT_TEMPLATES_DIR / "api" / "README_API_PROJECT.md"
-README_UI_TEMPLATE_PATH = PROJECT_TEMPLATES_DIR / "ui" / "README_UI_PROJECT.md"
+PROJECT_TEMPLATES_DIR = BASE_DIR / "templates" / "project"
 
 
-def _safe_read(path: Path, fallback: str) -> str:
-    """
-    Lee un archivo de texto de forma segura.
-    Si no existe, devuelve el fallback para que el bootstrapper no reviente.
-    """
+def _load_template(path: Path, fallback: str) -> str:
+    """Lee un archivo de plantilla si existe; si no, devuelve un fallback."""
     try:
         return path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return fallback
 
 
-# === Carga de templates ===
-
-# README genérico (preset default)
-README_TEMPLATE = _safe_read(
-    README_TEMPLATE_PATH,
-    "# QA Automation Starter Project\n\n"
-    "Template file 'templates/project/README_PROJECT.md' was not found.\n"
-    "Please add it to customize this README.\n",
+# --------------------------------------------------------------------
+# Plantillas de README por preset
+# --------------------------------------------------------------------
+README_DEFAULT = _load_template(
+    PROJECT_TEMPLATES_DIR / "README_PROJECT.md",
+    "# QA Starter Project\n\nGenerated with qa-project-bootstrapper (default preset).\n",
 )
 
-# requirements.txt base
-REQUIREMENTS_TEMPLATE = _safe_read(
-    REQUIREMENTS_TEMPLATE_PATH,
-    "pytest==9.0.2\n",
+README_API = _load_template(
+    PROJECT_TEMPLATES_DIR / "api" / "README_API_PROJECT.md",
+    "# QA API Project\n\nGenerated with qa-project-bootstrapper (api preset).\n",
 )
 
-# pytest.ini base
-PYTEST_INI_TEMPLATE = _safe_read(
-    PYTEST_INI_TEMPLATE_PATH,
-    "[pytest]\n"
-    "markers =\n"
-    "    smoke: Quick high-level health check of main flows.\n"
-    "    api: Marks tests that hit HTTP APIs.\n"
-    "    ui: Marks ui/end-to-end browser tests.\n",
+README_UI = _load_template(
+    PROJECT_TEMPLATES_DIR / "ui" / "README_UI_PROJECT.md",
+    "# QA UI Project\n\nGenerated with qa-project-bootstrapper (ui preset).\n",
 )
 
-# README para preset api (viene del template; fallback mínimo si falta el archivo)
-README_API_TEMPLATE = _safe_read(
-    README_API_TEMPLATE_PATH,
-    "# QA api Testing Starter Project\n\n"
-    "Template file 'templates/project/api/README_API_PROJECT.md' was not found.\n"
-    "Please add it to customize this README.\n",
+README_MINIMAL = _load_template(
+    PROJECT_TEMPLATES_DIR / "minimal" / "README_MINIMAL_PROJECT.md",
+    "# QA Minimal Pytest Project\n\nGenerated with qa-project-bootstrapper (minimal preset).\n",
 )
 
-# README para preset ui (viene del template; fallback mínimo si falta el archivo)
-README_UI_TEMPLATE = _safe_read(
-    README_UI_TEMPLATE_PATH,
-    "# QA ui Testing Starter Project\n\n"
-    "Template file 'templates/project/ui/README_UI_PROJECT.md' was not found.\n"
-    "Please add it to customize this README.\n",
+# --------------------------------------------------------------------
+# Plantilla de pytest.ini
+# --------------------------------------------------------------------
+PYTEST_INI_CONTENT = _load_template(
+    PROJECT_TEMPLATES_DIR / "pytest.ini",
+    dedent(
+        """
+        [pytest]
+        addopts = -v
+        markers =
+            smoke: smoke tests
+            api: api tests
+            ui: ui tests
+        """
+    ).strip()
+    + "\n",
 )
 
-# === Templates de código ===
+# --------------------------------------------------------------------
+# Plantilla de CI (GitHub Actions)
+# --------------------------------------------------------------------
+CI_WORKFLOW_CONTENT = _load_template(
+    PROJECT_TEMPLATES_DIR / ".github" / "workflows" / "ci.yml",
+    dedent(
+        """
+        name: CI
 
-# Test sample por defecto (preset "default")
-TEST_SAMPLE_DEFAULT_TEMPLATE = (
-    "import pytest\n\n\n"
-    "@pytest.mark.smoke\n"
-    "def test_sample_smoke_check():\n"
-    "    \"\"\"Basic smoke test to verify that the test suite is wired correctly.\"\"\"\n"
-    "    # Given\n"
-    "    expected_value = 1\n\n"
-    "    # When\n"
-    "    result = 1\n\n"
-    "    # Then\n"
-    "    assert result == expected_value\n"
+        on:
+          push:
+            branches: [ "main" ]
+          pull_request:
+
+        jobs:
+          test:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: actions/checkout@v4
+              - uses: actions/setup-python@v5
+                with:
+                  python-version: "3.10"
+              - run: pip install -r requirements.txt
+              - run: pytest -v
+        """
+    ).strip()
+    + "\n",
 )
 
-# api client helper
-API_CLIENT_TEMPLATE = (
-    "import os\n"
-    "import requests\n\n\n"
-    "class ApiClient:\n"
-    "    \"\"\"Very small HTTP api client using requests.\n\n"
-    "    This is only a starting point. Extend it with auth, headers,\n"
-    "    logging, retries, etc., depending on your needs.\n"
-    "    \"\"\"\n\n"
-    "    def __init__(self, base_url: str | None = None) -> None:\n"
-    "        # You can override the base URL via the API_BASE_URL env var\n"
-    "        self.base_url = base_url or os.getenv(\"API_BASE_URL\", \"https://httpbin.org\")\n\n"
-    "    def _build_url(self, path: str) -> str:\n"
-    "        if not path.startswith(\"/\"):\n"
-    "            path = \"/\" + path\n"
-    "        return f\"{self.base_url}{path}\"\n\n"
-    "    def get(self, path: str, **kwargs):\n"
-    "        return requests.get(self._build_url(path), **kwargs)\n\n"
-    "    def post(self, path: str, **kwargs):\n"
-    "        return requests.post(self._build_url(path), **kwargs)\n"
-)
-
-# Test sample para preset api
-TEST_SAMPLE_API_TEMPLATE = (
-    "import pytest\n"
-    "from tests.utils.api_client import ApiClient\n\n\n"
-    "@pytest.mark.smoke\n"
-    "@pytest.mark.api\n"
-    "def test_healthcheck_endpoint_returns_200():\n"
-    "    \"\"\"Example api smoke test using ApiClient.\n\n"
-    "    By default it hits https://httpbin.org/status/200.\n"
-    "    You can change the base URL via the API_BASE_URL env var.\n"
-    "    \"\"\"\n"
-    "    # Given\n"
-    "    client = ApiClient()\n"
-    "    path = \"/status/200\"\n\n"
-    "    # When\n"
-    "    response = client.get(path)\n\n"
-    "    # Then\n"
-    "    assert response.status_code == 200\n"
-)
-
-# Page Object de ejemplo para UI
-PAGES_LOGIN_TEMPLATE = (
-    "class LoginPage:\n"
-    "    \"\"\"Example Page Object skeleton for ui tests.\n\n"
-    "    Replace the methods below with real interactions using Playwright,\n"
-    "    Selenium, or any other browser automation library.\n"
-    "    \"\"\"\n\n"
-    "    def __init__(self, page) -> None:\n"
-    "        \"\"\"`page` can be a Playwright/Selenium driver or similar.\"\"\"\n"
-    "        self.page = page\n\n"
-    "    def open(self) -> None:\n"
-    "        \"\"\"Open the login page.\n\n"
-    "        TODO: implement real navigation here.\n"
-    "        \"\"\"\n"
-    "        raise NotImplementedError(\"Implement LoginPage.open() with real ui actions\")\n\n"
-    "    def login(self, username: str, password: str) -> None:\n"
-    "        \"\"\"Fill the login form and submit.\n\n"
-    "        TODO: implement real locators and actions here.\n"
-    "        \"\"\"\n"
-    "        raise NotImplementedError(\"Implement LoginPage.login() with real ui actions\")\n"
-)
-
-# Test sample para preset ui (skeleton sin navegador real)
-TEST_SAMPLE_UI_TEMPLATE = (
-    "import pytest\n\n\n"
-    "@pytest.mark.smoke\n"
-    "@pytest.mark.ui\n"
-    "def test_ui_sample_placeholder():\n"
-    "    \"\"\"Example ui test skeleton.\n\n"
-    "    This test does NOT hit a real browser yet. It is a placeholder to\n"
-    "    show naming and structure. Replace its body with real ui automation\n"
-    "    using Playwright, Selenium, etc.\n"
-    "    \"\"\"\n"
-    "    # Given\n"
-    "    expected_title = \"Swag Labs\"\n\n"
-    "    # When\n"
-    "    # TODO: replace this with a real browser call to get the title\n"
-    "    current_title = expected_title\n\n"
-    "    # Then\n"
-    "    assert current_title == expected_title\n"
-)
-
-# === Estructura base ===
-
-FOLDERS = [
-    "tests",
-    "tests/pages",
-    "tests/data",
-    "tests/utils",
-    ".github/workflows",
-]
-
-# Archivos base (preset "default")
-BASE_FILES = {
-    "tests/__init__.py": "",
-    "tests/pages/__init__.py": "",
-    "tests/data/__init__.py": "",
-    "tests/utils/__init__.py": "",
-    "tests/test_sample.py": TEST_SAMPLE_DEFAULT_TEMPLATE,
-    "README.md": README_TEMPLATE,
-    "requirements.txt": REQUIREMENTS_TEMPLATE,
-    "pytest.ini": PYTEST_INI_TEMPLATE,
-    ".github/workflows/ci.yml": (
-        "name: CI\n"
-        "\n"
-        "on:\n"
-        "  push:\n"
-        "    branches: [ \"main\" ]\n"
-        "  pull_request:\n"
-        "\n"
-        "jobs:\n"
-        "  test:\n"
-        "    runs-on: ubuntu-latest\n"
-        "    steps:\n"
-        "      - uses: actions/checkout@v4\n"
-        "      - uses: actions/setup-python@v5\n"
-        "        with:\n"
-        "          python-version: '3.10'\n"
-        "      - run: pip install -r requirements.txt\n"
-        "      - run: pytest -v\n"
-    ),
-}
-
-
-def build_files_for_preset(preset: str) -> dict:
+# --------------------------------------------------------------------
+# Requisitos por preset
+# --------------------------------------------------------------------
+REQUIREMENTS_DEFAULT = dedent(
     """
-    Devuelve el diccionario de FILES según el preset elegido.
+    pytest
+    pytest-html
+    pytest-metadata
+    pytest-base-url
+    pytest-playwright
+    requests
     """
-    files = dict(BASE_FILES)
+).strip() + "\n"
 
-    if preset == "api":
-        # Test de ejemplo orientado a api
-        files["tests/test_sample.py"] = TEST_SAMPLE_API_TEMPLATE
+REQUIREMENTS_API = dedent(
+    """
+    pytest
+    requests
+    """
+).strip() + "\n"
 
-        # README específico para api (desde templates/project/api)
-        files["README.md"] = README_API_TEMPLATE
+REQUIREMENTS_UI = dedent(
+    """
+    pytest
+    pytest-playwright
+    pytest-html
+    pytest-metadata
+    pytest-base-url
+    """
+).strip() + "\n"
 
-        # requirements: base + requests
-        req = REQUIREMENTS_TEMPLATE
-        if "requests" not in req:
-            if not req.endswith("\n"):
-                req += "\n"
-            req += "requests==2.32.3\n"
-        files["requirements.txt"] = req
+REQUIREMENTS_MINIMAL = dedent(
+    """
+    pytest
+    """
+).strip() + "\n"
 
-        # ApiClient helper
-        files["tests/utils/api_client.py"] = API_CLIENT_TEMPLATE
-
-    elif preset == "ui":
-        # Test de ejemplo orientado a ui (placeholder sin navegador real)
-        files["tests/test_sample.py"] = TEST_SAMPLE_UI_TEMPLATE
-
-        # Page Object de ejemplo
-        files["tests/pages/login_page.py"] = PAGES_LOGIN_TEMPLATE
-
-        # README específico para ui (desde templates/project/ui)
-        files["README.md"] = README_UI_TEMPLATE
-
-        # requirements: por ahora igual que base (solo pytest)
-        files["requirements.txt"] = REQUIREMENTS_TEMPLATE
-
-    # preset "default" usa BASE_FILES sin cambios
-    return files
+# --------------------------------------------------------------------
+# Tests de ejemplo
+# --------------------------------------------------------------------
+SAMPLE_TEST_DEFAULT = dedent(
+    """
+    import pytest
 
 
-# === CLI ===
+    @pytest.mark.smoke
+    def test_sample_smoke_check():
+        \"\"\"Basic smoke test placeholder.
 
+        Replace this test with something that matches your real feature.
+        \"\"\"
+        assert True
+    """
+).strip() + "\n"
+
+SAMPLE_TEST_API = dedent(
+    """
+    import pytest
+
+    from tests.utils.api_client import ApiClient
+
+
+    @pytest.mark.smoke
+    @pytest.mark.api
+    def test_healthcheck_endpoint_returns_200():
+        \"\"\"Example API smoke test using ApiClient.
+
+        By default it hits https://httpbin.org/status/200.
+        You can change the base URL via the API_BASE_URL env var.
+        \"\"\"
+        client = ApiClient()
+        response = client.get("/status/200")
+
+        assert response.status_code == 200
+    """
+).strip() + "\n"
+
+SAMPLE_TEST_UI = dedent(
+    """
+    import pytest
+
+
+    @pytest.mark.smoke
+    @pytest.mark.ui
+    def test_ui_sample_placeholder():
+        \"\"\"UI smoke placeholder.
+
+        Wire this into Playwright (page fixture, locators, etc.)
+        to turn it into a real UI test.
+        \"\"\"
+        assert True
+    """
+).strip() + "\n"
+
+SAMPLE_TEST_MINIMAL = dedent(
+    """
+    import pytest
+
+
+    @pytest.mark.smoke
+    def test_example():
+        \"\"\"Ultra-minimal example test.
+
+        Feel free to delete this file and start fresh.
+        \"\"\"
+        assert 1 + 1 == 2
+    """
+).strip() + "\n"
+
+# --------------------------------------------------------------------
+# ApiClient para preset API
+# --------------------------------------------------------------------
+API_CLIENT_CONTENT = dedent(
+    """
+    import os
+    from typing import Any, Dict, Optional
+
+    import requests
+
+
+    class ApiClient:
+        \"\"\"Small helper to call HTTP endpoints in tests.
+
+        Defaults to https://httpbin.org, but you can override the base URL
+        via the environment variable API_BASE_URL.
+        \"\"\"
+
+        def __init__(self, base_url: Optional[str] = None, timeout: int = 10) -> None:
+            self.base_url = base_url or os.getenv("API_BASE_URL", "https://httpbin.org")
+            self.timeout = timeout
+
+        def _build_url(self, path: str) -> str:
+            return self.base_url.rstrip("/") + "/" + path.lstrip("/")
+
+        def get(self, path: str, **kwargs: Dict[str, Any]) -> requests.Response:
+            url = self._build_url(path)
+            return requests.get(url, timeout=self.timeout, **kwargs)
+    """
+).strip() + "\n"
+
+
+# --------------------------------------------------------------------
+# CLI
+# --------------------------------------------------------------------
 def parse_args() -> argparse.Namespace:
-    """
-    Lee argumentos de línea de comandos.
-
-    Uso:
-      python qa_init.py                         -> modo interactivo (pregunta el nombre)
-      python qa_init.py my_proj                 -> crea proyecto default (pytest)
-      python qa_init.py my_proj --no-ci         -> crea proyecto default SIN CI
-      python qa_init.py my_api --preset api     -> crea proyecto orientado a api
-      python qa_init.py my_ui --preset ui       -> crea proyecto orientado a ui
-    """
     parser = argparse.ArgumentParser(
         description="Bootstrap a QA automation project (pytest-based)."
     )
 
     parser.add_argument(
         "project_name",
-        nargs="?",  # opcional
+        nargs="?",
         help="Name of the folder to create for your new QA project.",
+    )
+
+    parser.add_argument(
+        "--preset",
+        choices=["default", "api", "ui", "minimal"],
+        default="default",
+        help="Project template to use (default, api, ui, minimal).",
     )
 
     parser.add_argument(
         "--no-ci",
         action="store_true",
-        help="Do not create the .github/workflows/ci.yml file in the new project.",
-    )
-
-    parser.add_argument(
-        "--preset",
-        choices=["default", "api", "ui"],
-        default="default",
-        help="Project preset: 'default' for generic pytest, 'api' for api testing, 'ui' for ui/end-to-end testing.",
+        help="Do not create the GitHub Actions CI workflow.",
     )
 
     return parser.parse_args()
 
 
-# === Creación de estructura ===
-
-def create_structure(project_name: str, *, no_ci: bool = False, preset: str = "default") -> None:
-    """
-    Crea la estructura base de un proyecto QA dentro
-    de una carpeta con el nombre indicado.
-    """
+# --------------------------------------------------------------------
+# Core
+# --------------------------------------------------------------------
+def create_structure(project_name: str, preset: str, with_ci: bool = True) -> None:
     base_path = Path(project_name)
-
-    # Protección: si la carpeta existe y NO está vacía, no pisamos nada
-    if base_path.exists() and any(base_path.iterdir()):
-        print(f"\n❌ ERROR: The target folder '{base_path}' already exists and is not empty.")
-        print("   Aborting to avoid overwriting an existing project.")
-        print("   Please choose a different project name, or clean the folder before retrying.\n")
-        return
 
     print(f"\n🚀 Creating project at: {base_path.resolve()}")
     print(f"   Preset: {preset}")
-    print(f"   CI: {'disabled (--no-ci)' if no_ci else 'enabled (GitHub Actions workflow)'}\n")
+    print(f"   CI workflow: {'ENABLED' if with_ci else 'DISABLED'}\n")
 
-    files = build_files_for_preset(preset)
+    # --- Folders según preset ---
+    if preset == "minimal":
+        folders = [
+            "tests",
+        ]
+    else:
+        folders = [
+            "tests",
+            "tests/pages",
+            "tests/data",
+            "tests/utils",
+        ]
+
+    if with_ci:
+        folders.append(".github/workflows")
 
     # Crear carpetas
-    for folder in FOLDERS:
-        # Si no_ci es True, evitamos crear la carpeta .github/workflows
-        if no_ci and folder.startswith(".github"):
-            continue
-
+    for folder in folders:
         folder_path = base_path / folder
         folder_path.mkdir(parents=True, exist_ok=True)
         print(f"📁 Folder created: {folder_path}")
 
-    # Crear archivos
-    for file_path, content in files.items():
-        # Si no_ci es True, no crear el workflow de CI
-        if no_ci and file_path.startswith(".github/workflows"):
-            continue
+    # --- Elegir contenido según preset ---
+    if preset == "api":
+        readme_content = README_API
+        requirements_content = REQUIREMENTS_API
+        test_sample_content = SAMPLE_TEST_API
+    elif preset == "ui":
+        readme_content = README_UI
+        requirements_content = REQUIREMENTS_UI
+        test_sample_content = SAMPLE_TEST_UI
+    elif preset == "minimal":
+        readme_content = README_MINIMAL
+        requirements_content = REQUIREMENTS_MINIMAL
+        test_sample_content = SAMPLE_TEST_MINIMAL
+    else:
+        readme_content = README_DEFAULT
+        requirements_content = REQUIREMENTS_DEFAULT
+        test_sample_content = SAMPLE_TEST_DEFAULT
 
-        full_path = base_path / file_path
+    # --- Archivos base compartidos ---
+    files: dict[str, str] = {
+        "tests/__init__.py": "",
+        "README.md": readme_content,
+        "pytest.ini": PYTEST_INI_CONTENT,
+        "requirements.txt": requirements_content,
+        "tests/test_sample.py": test_sample_content,
+    }
+
+    # Archivos extra por preset
+    if preset == "api":
+        files["tests/utils/__init__.py"] = ""
+        files["tests/utils/api_client.py"] = API_CLIENT_CONTENT
+
+    # CI workflow
+    if with_ci:
+        files[".github/workflows/ci.yml"] = CI_WORKFLOW_CONTENT
+
+    # Crear archivos
+    for rel_path, content in files.items():
+        full_path = base_path / rel_path
         full_path.parent.mkdir(parents=True, exist_ok=True)
 
         with full_path.open("w", encoding="utf-8") as f:
@@ -343,31 +339,24 @@ def create_structure(project_name: str, *, no_ci: bool = False, preset: str = "d
 
         print(f"📄 File created: {full_path}")
 
+    # --- Mensaje final ---
     print("\n🎉 Project created successfully!")
-    print("\nNext steps:")
+    print("\nNext steps (Windows / PowerShell):")
     print(f"  cd {project_name}")
     print("  python -m venv .venv")
     print("  .venv\\Scripts\\activate")
     print("  pip install -r requirements.txt")
-    print("  pytest -v")
+    print("  pytest -v\n")
 
-    print("\nOptional:")
-    print("  For a full Playwright + reporting setup, see:")
-    print("  QA Web Starter Kit PRO → https://tyrengman.gumroad.com/l/QAKITPRO")
-
-
-# === Entry point ===
 
 if __name__ == "__main__":
     args = parse_args()
 
     project_name = (args.project_name or "").strip()
-
-    # Modo interactivo si no se pasó project_name
     if not project_name:
         project_name = input("Enter a name for your new QA project: ").strip()
 
     if not project_name:
         print("❌ ERROR: project name cannot be empty.")
     else:
-        create_structure(project_name, no_ci=args.no_ci, preset=args.preset)
+        create_structure(project_name, preset=args.preset, with_ci=not args.no_ci)
