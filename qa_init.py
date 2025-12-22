@@ -1,46 +1,83 @@
 from pathlib import Path
 import argparse
 
-# Base directory of this bootstrapper
+# === Paths base ===
+
+# Carpeta raíz del bootstrapper (donde vive qa_init.py)
 BASE_DIR = Path(__file__).parent
 
-# Templates directory
-TEMPLATES_DIR = BASE_DIR / "templates"
+# Carpeta /templates
+TEMPLATES_ROOT = BASE_DIR / "templates"
 
-# Template paths
-README_TEMPLATE_PATH = TEMPLATES_DIR / "README_PROJECT.md"
-REQUIREMENTS_TEMPLATE_PATH = TEMPLATES_DIR / "requirements.txt"
-PYTEST_INI_TEMPLATE_PATH = TEMPLATES_DIR / "pytest.ini"
+# Carpeta /templates/project
+PROJECT_TEMPLATES_DIR = TEMPLATES_ROOT / "project"
 
-# Load README template (Markdown) with a fallback if file is missing
-try:
-    README_TEMPLATE = README_TEMPLATE_PATH.read_text(encoding="utf-8")
-except FileNotFoundError:
-    README_TEMPLATE = (
-        "# QA Automation Starter Project\n\n"
-        "Template file 'templates/README_PROJECT.md' was not found.\n"
-        "Please add it to customize this README.\n"
-    )
+# Rutas de templates principales
+README_TEMPLATE_PATH = PROJECT_TEMPLATES_DIR / "README_PROJECT.md"
+PYTEST_INI_TEMPLATE_PATH = PROJECT_TEMPLATES_DIR / "pytest.ini"
+REQUIREMENTS_TEMPLATE_PATH = TEMPLATES_ROOT / "requirements.txt"
 
-# Load requirements template with a fallback
-try:
-    REQUIREMENTS_TEMPLATE = REQUIREMENTS_TEMPLATE_PATH.read_text(encoding="utf-8")
-except FileNotFoundError:
-    REQUIREMENTS_TEMPLATE = "pytest==9.0.2\n"
+# Rutas de templates específicos por preset
+README_API_TEMPLATE_PATH = PROJECT_TEMPLATES_DIR / "api" / "README_API_PROJECT.md"
+README_UI_TEMPLATE_PATH = PROJECT_TEMPLATES_DIR / "ui" / "README_UI_PROJECT.md"
 
-# Load pytest.ini template with a fallback
-try:
-    PYTEST_INI_TEMPLATE = PYTEST_INI_TEMPLATE_PATH.read_text(encoding="utf-8")
-except FileNotFoundError:
-    PYTEST_INI_TEMPLATE = (
-        "[pytest]\n"
-        "markers =\n"
-        "    smoke: Quick high-level health check of main flows.\n"
-        "    api: Marks tests that hit HTTP APIs.\n"
-        "    ui: Marks UI/end-to-end browser tests.\n"
-    )
 
-# Template for the default sample test (generic pytest)
+def _safe_read(path: Path, fallback: str) -> str:
+    """
+    Lee un archivo de texto de forma segura.
+    Si no existe, devuelve el fallback para que el bootstrapper no reviente.
+    """
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return fallback
+
+
+# === Carga de templates ===
+
+# README genérico (preset default)
+README_TEMPLATE = _safe_read(
+    README_TEMPLATE_PATH,
+    "# QA Automation Starter Project\n\n"
+    "Template file 'templates/project/README_PROJECT.md' was not found.\n"
+    "Please add it to customize this README.\n",
+)
+
+# requirements.txt base
+REQUIREMENTS_TEMPLATE = _safe_read(
+    REQUIREMENTS_TEMPLATE_PATH,
+    "pytest==9.0.2\n",
+)
+
+# pytest.ini base
+PYTEST_INI_TEMPLATE = _safe_read(
+    PYTEST_INI_TEMPLATE_PATH,
+    "[pytest]\n"
+    "markers =\n"
+    "    smoke: Quick high-level health check of main flows.\n"
+    "    api: Marks tests that hit HTTP APIs.\n"
+    "    ui: Marks ui/end-to-end browser tests.\n",
+)
+
+# README para preset api (viene del template; fallback mínimo si falta el archivo)
+README_API_TEMPLATE = _safe_read(
+    README_API_TEMPLATE_PATH,
+    "# QA api Testing Starter Project\n\n"
+    "Template file 'templates/project/api/README_API_PROJECT.md' was not found.\n"
+    "Please add it to customize this README.\n",
+)
+
+# README para preset ui (viene del template; fallback mínimo si falta el archivo)
+README_UI_TEMPLATE = _safe_read(
+    README_UI_TEMPLATE_PATH,
+    "# QA ui Testing Starter Project\n\n"
+    "Template file 'templates/project/ui/README_UI_PROJECT.md' was not found.\n"
+    "Please add it to customize this README.\n",
+)
+
+# === Templates de código ===
+
+# Test sample por defecto (preset "default")
 TEST_SAMPLE_DEFAULT_TEMPLATE = (
     "import pytest\n\n\n"
     "@pytest.mark.smoke\n"
@@ -54,12 +91,12 @@ TEST_SAMPLE_DEFAULT_TEMPLATE = (
     "    assert result == expected_value\n"
 )
 
-# Template for the API client helper
+# api client helper
 API_CLIENT_TEMPLATE = (
     "import os\n"
     "import requests\n\n\n"
     "class ApiClient:\n"
-    "    \"\"\"Very small HTTP API client using requests.\n\n"
+    "    \"\"\"Very small HTTP api client using requests.\n\n"
     "    This is only a starting point. Extend it with auth, headers,\n"
     "    logging, retries, etc., depending on your needs.\n"
     "    \"\"\"\n\n"
@@ -76,14 +113,14 @@ API_CLIENT_TEMPLATE = (
     "        return requests.post(self._build_url(path), **kwargs)\n"
 )
 
-# Template for the API sample test
+# Test sample para preset api
 TEST_SAMPLE_API_TEMPLATE = (
     "import pytest\n"
     "from tests.utils.api_client import ApiClient\n\n\n"
     "@pytest.mark.smoke\n"
     "@pytest.mark.api\n"
     "def test_healthcheck_endpoint_returns_200():\n"
-    "    \"\"\"Example API smoke test using ApiClient.\n\n"
+    "    \"\"\"Example api smoke test using ApiClient.\n\n"
     "    By default it hits https://httpbin.org/status/200.\n"
     "    You can change the base URL via the API_BASE_URL env var.\n"
     "    \"\"\"\n"
@@ -96,10 +133,10 @@ TEST_SAMPLE_API_TEMPLATE = (
     "    assert response.status_code == 200\n"
 )
 
-# Template for a simple Page Object (UI preset)
+# Page Object de ejemplo para UI
 PAGES_LOGIN_TEMPLATE = (
     "class LoginPage:\n"
-    "    \"\"\"Example Page Object skeleton for UI tests.\n\n"
+    "    \"\"\"Example Page Object skeleton for ui tests.\n\n"
     "    Replace the methods below with real interactions using Playwright,\n"
     "    Selenium, or any other browser automation library.\n"
     "    \"\"\"\n\n"
@@ -110,23 +147,23 @@ PAGES_LOGIN_TEMPLATE = (
     "        \"\"\"Open the login page.\n\n"
     "        TODO: implement real navigation here.\n"
     "        \"\"\"\n"
-    "        raise NotImplementedError(\"Implement LoginPage.open() with real UI actions\")\n\n"
+    "        raise NotImplementedError(\"Implement LoginPage.open() with real ui actions\")\n\n"
     "    def login(self, username: str, password: str) -> None:\n"
     "        \"\"\"Fill the login form and submit.\n\n"
     "        TODO: implement real locators and actions here.\n"
     "        \"\"\"\n"
-    "        raise NotImplementedError(\"Implement LoginPage.login() with real UI actions\")\n"
+    "        raise NotImplementedError(\"Implement LoginPage.login() with real ui actions\")\n"
 )
 
-# Template for the UI sample test (no real browser yet, just skeleton)
+# Test sample para preset ui (skeleton sin navegador real)
 TEST_SAMPLE_UI_TEMPLATE = (
     "import pytest\n\n\n"
     "@pytest.mark.smoke\n"
     "@pytest.mark.ui\n"
     "def test_ui_sample_placeholder():\n"
-    "    \"\"\"Example UI test skeleton.\n\n"
+    "    \"\"\"Example ui test skeleton.\n\n"
     "    This test does NOT hit a real browser yet. It is a placeholder to\n"
-    "    show naming and structure. Replace its body with real UI automation\n"
+    "    show naming and structure. Replace its body with real ui automation\n"
     "    using Playwright, Selenium, etc.\n"
     "    \"\"\"\n"
     "    # Given\n"
@@ -138,155 +175,8 @@ TEST_SAMPLE_UI_TEMPLATE = (
     "    assert current_title == expected_title\n"
 )
 
-# README template for API preset (inline, independent from README_PROJECT.md)
-README_API_TEMPLATE = (
-    "# QA API Testing Starter Project\n\n"
-    "This project was generated using the **QA Project Bootstrapper** with the **API preset**.\n\n"
-    "It is focused on automated testing of HTTP APIs using **pytest** and **requests**.\n"
-    "The goal is: _create env, install requirements, run your first API test_ in a few minutes,\n"
-    "and then start adding real endpoints and test scenarios.\n\n"
-    "---\n\n"
-    "## 1. What you get\n\n"
-    "- ✅ Python + pytest + requests\n"
-    "- ✅ A basic API smoke test in `tests/test_sample.py`\n"
-    "- ✅ `pytest.ini` with registered `smoke` and `api` markers\n"
-    "- ✅ A small `ApiClient` helper in `tests/utils/api_client.py`\n\n"
-    "---\n\n"
-    "## 2. Quick start\n\n"
-    "Create and activate a virtual environment:\n\n"
-    "```bash\n"
-    "python -m venv .venv\n"
-    "```\n\n"
-    "Activate it:\n\n"
-    "- **Windows (PowerShell):**\n\n"
-    "  ```bash\n"
-    "  .\\.venv\\Scripts\\activate\n"
-    "  ```\n\n"
-    "- **Linux / macOS:**\n\n"
-    "  ```bash\n"
-    "  source .venv/bin/activate\n"
-    "  ```\n\n"
-    "Install dependencies:\n\n"
-    "```bash\n"
-    "pip install -r requirements.txt\n"
-    "```\n\n"
-    "Run tests:\n\n"
-    "```bash\n"
-    "pytest -v\n"
-    "```\n\n"
-    "---\n\n"
-    "## 3. Project structure\n\n"
-    "```text\n"
-    ".\n"
-    "├── tests/\n"
-    "│   ├── __init__.py\n"
-    "│   ├── test_sample.py        # Example API smoke test using ApiClient\n"
-    "│   ├── data/                 # Test data (JSON, payloads, etc.)\n"
-    "│   │   └── __init__.py\n"
-    "│   ├── pages/                # (Optional) for UI / hybrid projects\n"
-    "│   │   └── __init__.py\n"
-    "│   └── utils/                # Helpers, clients, custom assertions\n"
-    "│       ├── __init__.py\n"
-    "│       └── api_client.py     # Minimal HTTP client wrapper\n"
-    "├── pytest.ini\n"
-    "├── requirements.txt\n"
-    "└── README.md\n"
-    "```\n\n"
-    "---\n\n"
-    "## 4. Next steps\n\n"
-    "- Replace `test_sample.py` with real tests hitting your API endpoints\n"
-    "- Extend `ApiClient` with auth, default headers, logging, retries, etc.\n"
-    "- Store JSON payloads or test data inside `tests/data/`\n"
-    "- Integrate this project into your CI pipeline\n\n"
-    "---\n\n"
-    "## Need a full Playwright + reporting stack?\n\n"
-    "This API starter is minimal on purpose.\n"
-    "If you need a more advanced, production-ready setup with:\n\n"
-    "- Playwright + Pytest UI automation\n"
-    "- HTML reports\n"
-    "- CI artifacts (screenshots, videos, traces)\n"
-    "- Opinionated PRO structure\n\n"
-    "check out **QA Web Starter Kit PRO**:\n"
-    "https://tyrengman.gumroad.com/l/QAKITPRO\n"
-)
+# === Estructura base ===
 
-# README template for UI preset (inline)
-README_UI_TEMPLATE = (
-    "# QA UI Testing Starter Project\n\n"
-    "This project was generated using the **QA Project Bootstrapper** with the **UI preset**.\n\n"
-    "It is focused on **browser-based UI/end-to-end tests** using pytest.\n"
-    "The goal is to give you a Page Object structure and markers so that you\n"
-    "can plug in Playwright, Selenium, or any other UI automation tool.\n\n"
-    "---\n\n"
-    "## 1. What you get\n\n"
-    "- ✅ Python + pytest\n"
-    "- ✅ `tests/test_sample.py` with a UI test skeleton\n"
-    "- ✅ `tests/pages/login_page.py` with a Page Object stub\n"
-    "- ✅ `pytest.ini` with `smoke` and `ui` markers\n\n"
-    "---\n\n"
-    "## 2. Quick start\n\n"
-    "Create and activate a virtual environment:\n\n"
-    "```bash\n"
-    "python -m venv .venv\n"
-    "```\n\n"
-    "Activate it:\n\n"
-    "- **Windows (PowerShell):**\n\n"
-    "  ```bash\n"
-    "  .\\.venv\\Scripts\\activate\n"
-    "  ```\n\n"
-    "- **Linux / macOS:**\n\n"
-    "  ```bash\n"
-    "  source .venv/bin/activate\n"
-    "  ```\n\n"
-    "Install dependencies:\n\n"
-    "```bash\n"
-    "pip install -r requirements.txt\n"
-    "```\n\n"
-    "Run tests:\n\n"
-    "```bash\n"
-    "pytest -v\n"
-    "```\n\n"
-    "---\n\n"
-    "## 3. Project structure\n\n"
-    "```text\n"
-    ".\n"
-    "├── tests/\n"
-    "│   ├── __init__.py\n"
-    "│   ├── test_sample.py        # UI test skeleton (no real browser call yet)\n"
-    "│   ├── data/                 # For test data if needed\n"
-    "│   │   └── __init__.py\n"
-    "│   ├── pages/                # Page Objects\n"
-    "│   │   ├── __init__.py\n"
-    "│   │   └── login_page.py     # Example Page Object stub\n"
-    "│   └── utils/                # Helpers and shared code\n"
-    "│       └── __init__.py\n"
-    "├── pytest.ini\n"
-    "├── requirements.txt\n"
-    "└── README.md\n"
-    "```\n\n"
-    "---\n\n"
-    "## 4. How to plug in Playwright or Selenium\n\n"
-    "This preset does not install any specific UI automation library by default,\n"
-    "to keep the starter lightweight and compatible.\n\n"
-    "Typical next steps:\n\n"
-    "- Install your preferred UI tool, e.g.:\n"
-    "  - `pip install playwright` + `playwright install`\n"
-    "  - or `pip install selenium`\n"
-    "- Create fixtures (e.g. `page`, `driver`) in `conftest.py`\n"
-    "- Implement real actions in `LoginPage.open()` and `LoginPage.login()`\n"
-    "- Update `test_sample.py` to use real browser interactions\n\n"
-    "---\n\n"
-    "## Need a full Playwright + reporting stack?\n\n"
-    "If you want a ready-to-use stack with:\n\n"
-    "- Playwright + Pytest UI automation\n"
-    "- HTML reports for stakeholders\n"
-    "- CI artifacts (screenshots, videos, traces)\n"
-    "- Proven, PRO-level structure\n\n"
-    "check out **QA Web Starter Kit PRO**:\n"
-    "https://tyrengman.gumroad.com/l/QAKITPRO\n"
-)
-
-# Carpetas base del proyecto QA
 FOLDERS = [
     "tests",
     "tests/pages",
@@ -295,7 +185,7 @@ FOLDERS = [
     ".github/workflows",
 ]
 
-# Base FILES (por defecto/preset 'default')
+# Archivos base (preset "default")
 BASE_FILES = {
     "tests/__init__.py": "",
     "tests/pages/__init__.py": "",
@@ -334,10 +224,10 @@ def build_files_for_preset(preset: str) -> dict:
     files = dict(BASE_FILES)
 
     if preset == "api":
-        # Test de ejemplo orientado a API
+        # Test de ejemplo orientado a api
         files["tests/test_sample.py"] = TEST_SAMPLE_API_TEMPLATE
 
-        # README específico para API
+        # README específico para api (desde templates/project/api)
         files["README.md"] = README_API_TEMPLATE
 
         # requirements: base + requests
@@ -352,13 +242,13 @@ def build_files_for_preset(preset: str) -> dict:
         files["tests/utils/api_client.py"] = API_CLIENT_TEMPLATE
 
     elif preset == "ui":
-        # Test de ejemplo orientado a UI (placeholder sin navegador real)
+        # Test de ejemplo orientado a ui (placeholder sin navegador real)
         files["tests/test_sample.py"] = TEST_SAMPLE_UI_TEMPLATE
 
         # Page Object de ejemplo
         files["tests/pages/login_page.py"] = PAGES_LOGIN_TEMPLATE
 
-        # README específico para UI
+        # README específico para ui (desde templates/project/ui)
         files["README.md"] = README_UI_TEMPLATE
 
         # requirements: por ahora igual que base (solo pytest)
@@ -368,6 +258,8 @@ def build_files_for_preset(preset: str) -> dict:
     return files
 
 
+# === CLI ===
+
 def parse_args() -> argparse.Namespace:
     """
     Lee argumentos de línea de comandos.
@@ -376,8 +268,8 @@ def parse_args() -> argparse.Namespace:
       python qa_init.py                         -> modo interactivo (pregunta el nombre)
       python qa_init.py my_proj                 -> crea proyecto default (pytest)
       python qa_init.py my_proj --no-ci         -> crea proyecto default SIN CI
-      python qa_init.py my_api --preset api     -> crea proyecto orientado a API
-      python qa_init.py my_ui --preset ui       -> crea proyecto orientado a UI
+      python qa_init.py my_api --preset api     -> crea proyecto orientado a api
+      python qa_init.py my_ui --preset ui       -> crea proyecto orientado a ui
     """
     parser = argparse.ArgumentParser(
         description="Bootstrap a QA automation project (pytest-based)."
@@ -399,11 +291,13 @@ def parse_args() -> argparse.Namespace:
         "--preset",
         choices=["default", "api", "ui"],
         default="default",
-        help="Project preset: 'default' for generic pytest, 'api' for API testing, 'ui' for UI/end-to-end testing.",
+        help="Project preset: 'default' for generic pytest, 'api' for api testing, 'ui' for ui/end-to-end testing.",
     )
 
     return parser.parse_args()
 
+
+# === Creación de estructura ===
 
 def create_structure(project_name: str, *, no_ci: bool = False, preset: str = "default") -> None:
     """
@@ -461,6 +355,8 @@ def create_structure(project_name: str, *, no_ci: bool = False, preset: str = "d
     print("  For a full Playwright + reporting setup, see:")
     print("  QA Web Starter Kit PRO → https://tyrengman.gumroad.com/l/QAKITPRO")
 
+
+# === Entry point ===
 
 if __name__ == "__main__":
     args = parse_args()
