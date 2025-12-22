@@ -111,11 +111,9 @@ REQUIREMENTS_API = dedent(
     """
 ).strip() + "\n"
 
-# UI robusto: incluye playwright + pytest-playwright (fixture `page`)
 REQUIREMENTS_UI = dedent(
     """
     pytest
-    playwright
     pytest-playwright
     pytest-html
     pytest-metadata
@@ -169,51 +167,20 @@ SAMPLE_TEST_API = dedent(
     """
 ).strip() + "\n"
 
-# UI Playwright REAL (ya no placeholder)
-UI_BASE_PAGE = dedent(
-    """
-    from playwright.sync_api import Page
-
-
-    class BasePage:
-        def __init__(self, page: Page):
-            self.page = page
-
-        def open(self, url: str) -> None:
-            self.page.goto(url, wait_until="domcontentloaded")
-    """
-).strip() + "\n"
-
-UI_EXAMPLE_PAGE = dedent(
-    """
-    from playwright.sync_api import expect
-    from .base_page import BasePage
-
-
-    class ExamplePage(BasePage):
-        URL = "https://example.com/"
-
-        def open_default(self) -> None:
-            self.open(self.URL)
-
-        def expect_title(self) -> None:
-            expect(self.page).to_have_title("Example Domain")
-    """
-).strip() + "\n"
-
-UI_TEST_EXAMPLE = dedent(
+SAMPLE_TEST_UI = dedent(
     """
     import pytest
-
-    from tests.ui.pages.example_page import ExamplePage
 
 
     @pytest.mark.smoke
     @pytest.mark.ui
-    def test_example_domain_title(page):
-        p = ExamplePage(page)
-        p.open_default()
-        p.expect_title()
+    def test_ui_sample_placeholder():
+        \"\"\"UI smoke placeholder.
+
+        Wire this into Playwright (page fixture, locators, etc.)
+        to turn it into a real UI test.
+        \"\"\"
+        assert True
     """
 ).strip() + "\n"
 
@@ -306,15 +273,8 @@ def create_structure(project_name: str, preset: str, with_ci: bool = True) -> No
 
     # --- Folders según preset ---
     if preset == "minimal":
-        folders = ["tests"]
-    elif preset == "ui":
-        # UI preset con estructura real
         folders = [
             "tests",
-            "tests/ui",
-            "tests/ui/pages",
-            "tests/data",
-            "tests/utils",
         ]
     else:
         folders = [
@@ -337,45 +297,33 @@ def create_structure(project_name: str, preset: str, with_ci: bool = True) -> No
     if preset == "api":
         readme_content = README_API
         requirements_content = REQUIREMENTS_API
+        test_sample_content = SAMPLE_TEST_API
     elif preset == "ui":
         readme_content = README_UI
         requirements_content = REQUIREMENTS_UI
+        test_sample_content = SAMPLE_TEST_UI
     elif preset == "minimal":
         readme_content = README_MINIMAL
         requirements_content = REQUIREMENTS_MINIMAL
+        test_sample_content = SAMPLE_TEST_MINIMAL
     else:
         readme_content = README_DEFAULT
         requirements_content = REQUIREMENTS_DEFAULT
+        test_sample_content = SAMPLE_TEST_DEFAULT
 
     # --- Archivos base compartidos ---
     files: dict[str, str] = {
+        "tests/__init__.py": "",
         "README.md": readme_content,
         "pytest.ini": PYTEST_INI_CONTENT,
         "requirements.txt": requirements_content,
-        "tests/__init__.py": "",
+        "tests/test_sample.py": test_sample_content,
     }
 
-    # Archivos por preset
+    # Archivos extra por preset
     if preset == "api":
         files["tests/utils/__init__.py"] = ""
         files["tests/utils/api_client.py"] = API_CLIENT_CONTENT
-        files["tests/test_sample.py"] = SAMPLE_TEST_API
-
-    elif preset == "ui":
-        files["tests/ui/__init__.py"] = ""
-        files["tests/ui/pages/__init__.py"] = ""
-        files["tests/ui/pages/base_page.py"] = UI_BASE_PAGE
-        files["tests/ui/pages/example_page.py"] = UI_EXAMPLE_PAGE
-        files["tests/ui/test_example_ui.py"] = UI_TEST_EXAMPLE
-
-    elif preset == "minimal":
-        files["tests/test_sample.py"] = SAMPLE_TEST_MINIMAL
-
-    else:
-        files["tests/test_sample.py"] = SAMPLE_TEST_DEFAULT
-        files["tests/pages/__init__.py"] = ""
-        files["tests/data/__init__.py"] = ""
-        files["tests/utils/__init__.py"] = ""
 
     # CI workflow
     if with_ci:
@@ -398,8 +346,6 @@ def create_structure(project_name: str, preset: str, with_ci: bool = True) -> No
     print("  python -m venv .venv")
     print("  .venv\\Scripts\\activate")
     print("  pip install -r requirements.txt")
-    if preset == "ui":
-        print("  python -m playwright install")
     print("  pytest -v\n")
 
 

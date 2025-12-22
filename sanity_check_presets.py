@@ -1,110 +1,101 @@
+from __future__ import annotations
+
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-# Ruta base del repo (donde está qa_init.py)
-BASE_DIR = Path(__file__).parent
 
-# Escenarios a probar: (nombre_carpeta, args_para_qa_init)
-SCENARIOS = [
-    ("sanity_default", []),                          # preset default
-    ("sanity_api", ["--preset", "api"]),             # preset api
-    ("sanity_ui", ["--preset", "ui"]),               # preset ui
-    ("sanity_minimal", ["--preset", "minimal", "--no-ci"]),  # preset minimal sin CI
-]
+PRESETS = ["default", "api", "ui", "minimal"]
 
 
-def run(cmd, cwd=None):
-    """Ejecuta un comando y lo muestra en consola."""
-    print(f"\n$ {' '.join(str(c) for c in cmd)}")
-    subprocess.run(cmd, cwd=cwd, check=True)
+def _is_windows() -> bool:
+    return sys.platform.startswith("win")
 
 
-def get_venv_python(project_path: Path) -> Path:
-    """Devuelve la ruta al python del .venv dentro del proyecto."""
-    if os.name == "nt":
-        # Windows
-        return project_path / ".venv" / "Scripts" / "python.exe"
-    else:
-        # macOS / Linux
-        return project_path / ".venv" / "bin" / "python"
+def _venv_python(venv_dir: Path) -> Path:
+    if _is_windows():
+        return venv_dir / "Scripts" / "python.exe"
+    return venv_dir / "bin" / "python"
 
 
-def sanity_check_scenario(project_name: str, extra_args: list[str]) -> bool:
-    """Ejecuta el sanity check para un preset.
+def _run(cmd: list[str], cwd: Path) -> None:
+    print(f"\n[CMD] {' '.join(cmd)}")
+    subprocess.run(cmd, cwd=str(cwd), check=True)
 
-    1) Borra carpeta si ya existe.
-    2) Genera proyecto con qa_init.py.
-    3) Crea .venv.
-    4) Instala requirements.
-    5) Corre pytest -v.
 
-    Devuelve True si todo sale bien, False si falla algo.
+def _run_ui_playwright_install(py: Path, project_dir: Path) -> None:
     """
-    project_path = BASE_DIR / project_name
+    ROBUSTO:
+    - En Linux CI: usa --with-deps para evitar faltantes en runners limpios.
+    - En Windows/macOS local: install normal.
+    """
+    if sys.platform.startswith("linux"):
+        _run([str(py), "-m", "playwright", "install", "--with-deps"], cwd=project_dir)
+    else:
+        _run([str(py), "-m", "playwright", "install"], cwd=project_dir)
 
-    print("\n" + "=" * 80)
-    print(f"🔎 Running sanity check for scenario: {project_name}")
-    print("=" * 80)
 
-    # 1) Borrar carpeta previa si existe
-    if project_path.exists():
-        print(f"🧹 Removing existing folder: {project_path}")
-        shutil.rmtree(project_path)
+def main() -> int:
+    repo_root = Path(__file__).parent.resolve()
+    qa_init = repo_root / "qa_init.py"
+
+    if not qa_init.exists():
+        print("ERROR: qa_init.py not found in repo root.")
+        return 1
+
+    temp_root = Path(tempfile.mkdtemp(prefix="bootstrapper_sanity_"))
+    print(f"\n[INFO] Temp workspace: {temp_root}")
 
     try:
-        # 2) Generar proyecto con qa_init.py
-        cmd_init = [sys.executable, "qa_init.py", project_name] + extra_args
-        run(cmd_init, cwd=BASE_DIR)
+        for preset in PRESETS:
+            project_dir = temp_root / f"demo_{preset}"
+            print("\n" + "=" * 90)
+            print(f"[INFO] Preset: {preset}")
+            print(f"[INFO] Generating: {project_dir}")
 
-        # 3) Crear .venv dentro del proyecto
-        print(f"\n📦 Creating virtualenv in: {project_path / '.venv'}")
-        run([sys.executable, "-m", "venv", ".venv"], cwd=project_path)
+            # 1) Generar proyecto
+            _run([sys.executable, str(qa_init), str(project_dir), "--preset", preset], cwd=repo_root)
 
-        # 4) Instalar requirements
-        venv_python = get_venv_python(project_path)
-        print(f"\n📥 Installing requirements using: {venv_python}")
-        run([str(venv_python), "-m", "pip", "install", "-r", "requirements.txt"], cwd=project_path)
+            # 2) Crear venv dentro del proyecto generado
+            venv_dir = project_dir / ".venv"
+            _run([sys.executable, "-m", "venv", str(venv_dir)], cwd=project_dir)
 
-        # 5) Correr pytest -v
-        print("\n🧪 Running pytest -v")
-        run([str(venv_python), "-m", "pytest", "-v"], cwd=project_path)
+            py = _venv_python(venv_dir)
+            if not py.exists():
+                print(f"ERROR: venv python not found at: {py}")
+                return 1
 
-        print(f"\n✅ Scenario '{project_name}' PASSED")
-        return True
+            # 3) pip install requirements
+            _run([str(py), "-m", "pip", "install", "--upgrade", "pip"], cwd=project_dir)
+            _run([str(py), "-m", "pip", "install", "-r", "requirements.txt"], cwd=project_dir)
+
+            # 4) Si es UI: instalar browsers (robusto por OS)
+            if preset == "ui":
+                _run_ui_playwright_install(py, project_dir)
+
+            # 5) correr pytest
+            _run([str(py), "-m", "pytest", "-q"], cwd=project_dir)
+
+            print(f"[OK] Preset '{preset}' passed ✅")
+
+        print("\n" + "=" * 90)
+        print("[SUCCESS] All presets passed ✅")
+        return 0
 
     except subprocess.CalledProcessError as e:
-        print(f"\n❌ Scenario '{project_name}' FAILED with return code {e.returncode}")
-        return False
+        print("\n" + "=" * 90)
+        print("[FAIL] A command failed ❌")
+        print(f"Return code: {e.returncode}")
+        return e.returncode
 
-
-def main():
-    print("\n🚀 QA Project Bootstrapper – Sanity check for presets")
-    print("   (default, api, ui, minimal)\n")
-
-    results = []
-
-    for name, args in SCENARIOS:
-        ok = sanity_check_scenario(name, args)
-        results.append((name, ok))
-
-    print("\n" + "#" * 80)
-    print("📊 SANITY CHECK SUMMARY")
-    print("#" * 80)
-
-    for name, ok in results:
-        status = "✅ OK" if ok else "❌ FAIL"
-        print(f"- {name}: {status}")
-
-    # Si quieres que el script devuelva error global si algo falla:
-    if not all(ok for _, ok in results):
-        print("\nSome scenarios FAILED. Please review the logs above.")
-        sys.exit(1)
-
-    print("\nAll scenarios PASSED. Bootstrapper looks healthy! 🎉")
+    finally:
+        # Limpieza automática
+        shutil.rmtree(temp_root, ignore_errors=True)
+        print(f"\n[INFO] Temp workspace cleaned: {temp_root}")
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
