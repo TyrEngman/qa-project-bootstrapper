@@ -111,7 +111,6 @@ REQUIREMENTS_API = dedent(
     """
 ).strip() + "\n"
 
-# UI robusto: incluye playwright + pytest-playwright (fixture `page`)
 REQUIREMENTS_UI = dedent(
     """
     pytest
@@ -147,29 +146,68 @@ SAMPLE_TEST_DEFAULT = dedent(
     """
 ).strip() + "\n"
 
+# --------------------------------------------------------------------
+# API PRESET: OFFLINE (sin internet)  ✅ CORREGIDO
+# --------------------------------------------------------------------
 SAMPLE_TEST_API = dedent(
     """
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
     import pytest
 
     from tests.utils.api_client import ApiClient
 
 
+    class _Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/status/200":
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"status":"ok"}')
+                return
+
+            self.send_response(404)
+            self.end_headers()
+
+        def log_message(self, format, *args):
+            # Silence server logs during tests
+            return
+
+
+    @pytest.fixture()
+    def local_server_base_url():
+        server = HTTPServer(("127.0.0.1", 0), _Handler)
+        host, port = server.server_address
+        base_url = f"http://{host}:{port}"
+
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        try:
+            yield base_url
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+
     @pytest.mark.smoke
     @pytest.mark.api
-    def test_healthcheck_endpoint_returns_200():
-        \"\"\"Example API smoke test using ApiClient.
+    def test_healthcheck_offline_returns_200(local_server_base_url):
+        \"\"\"Offline API smoke test.
 
-        By default it hits https://httpbin.org/status/200.
-        You can change the base URL via the API_BASE_URL env var.
+        It starts a local HTTP server and calls /status/200.
+        No internet required, stable in CI.
         \"\"\"
-        client = ApiClient()
+        client = ApiClient(base_url=local_server_base_url)
         response = client.get("/status/200")
 
         assert response.status_code == 200
     """
 ).strip() + "\n"
 
-# UI Playwright REAL (ya no placeholder)
 UI_BASE_PAGE = dedent(
     """
     from playwright.sync_api import Page
@@ -237,7 +275,6 @@ SAMPLE_TEST_MINIMAL = dedent(
 # --------------------------------------------------------------------
 API_CLIENT_CONTENT = dedent(
     """
-    import os
     from typing import Any, Dict, Optional
 
     import requests
@@ -246,15 +283,16 @@ API_CLIENT_CONTENT = dedent(
     class ApiClient:
         \"\"\"Small helper to call HTTP endpoints in tests.
 
-        Defaults to https://httpbin.org, but you can override the base URL
-        via the environment variable API_BASE_URL.
+        You can pass base_url directly (recommended), or set API_BASE_URL env var.
         \"\"\"
 
         def __init__(self, base_url: Optional[str] = None, timeout: int = 10) -> None:
-            self.base_url = base_url or os.getenv("API_BASE_URL", "https://httpbin.org")
+            self.base_url = base_url
             self.timeout = timeout
 
         def _build_url(self, path: str) -> str:
+            if not self.base_url:
+                raise ValueError("ApiClient.base_url is required. Pass base_url explicitly.")
             return self.base_url.rstrip("/") + "/" + path.lstrip("/")
 
         def get(self, path: str, **kwargs: Dict[str, Any]) -> requests.Response:
@@ -300,15 +338,13 @@ def parse_args() -> argparse.Namespace:
 def create_structure(project_name: str, preset: str, with_ci: bool = True) -> None:
     base_path = Path(project_name)
 
-    print(f"\n🚀 Creating project at: {base_path.resolve()}")
-    print(f"   Preset: {preset}")
-    print(f"   CI workflow: {'ENABLED' if with_ci else 'DISABLED'}\n")
+    print(f"Creating project at: {base_path.resolve()}")
+    print(f"Preset: {preset}")
+    print(f"CI workflow: {'ENABLED' if with_ci else 'DISABLED'}\n")
 
-    # --- Folders según preset ---
     if preset == "minimal":
         folders = ["tests"]
     elif preset == "ui":
-        # UI preset con estructura real
         folders = [
             "tests",
             "tests/ui",
@@ -327,13 +363,11 @@ def create_structure(project_name: str, preset: str, with_ci: bool = True) -> No
     if with_ci:
         folders.append(".github/workflows")
 
-    # Crear carpetas
     for folder in folders:
         folder_path = base_path / folder
         folder_path.mkdir(parents=True, exist_ok=True)
-        print(f"📁 Folder created: {folder_path}")
+        print(f"Folder created: {folder_path}")
 
-    # --- Elegir contenido según preset ---
     if preset == "api":
         readme_content = README_API
         requirements_content = REQUIREMENTS_API
@@ -347,7 +381,6 @@ def create_structure(project_name: str, preset: str, with_ci: bool = True) -> No
         readme_content = README_DEFAULT
         requirements_content = REQUIREMENTS_DEFAULT
 
-    # --- Archivos base compartidos ---
     files: dict[str, str] = {
         "README.md": readme_content,
         "pytest.ini": PYTEST_INI_CONTENT,
@@ -355,7 +388,6 @@ def create_structure(project_name: str, preset: str, with_ci: bool = True) -> No
         "tests/__init__.py": "",
     }
 
-    # Archivos por preset
     if preset == "api":
         files["tests/utils/__init__.py"] = ""
         files["tests/utils/api_client.py"] = API_CLIENT_CONTENT
@@ -377,11 +409,9 @@ def create_structure(project_name: str, preset: str, with_ci: bool = True) -> No
         files["tests/data/__init__.py"] = ""
         files["tests/utils/__init__.py"] = ""
 
-    # CI workflow
     if with_ci:
         files[".github/workflows/ci.yml"] = CI_WORKFLOW_CONTENT
 
-    # Crear archivos
     for rel_path, content in files.items():
         full_path = base_path / rel_path
         full_path.parent.mkdir(parents=True, exist_ok=True)
@@ -389,18 +419,17 @@ def create_structure(project_name: str, preset: str, with_ci: bool = True) -> No
         with full_path.open("w", encoding="utf-8") as f:
             f.write(content)
 
-        print(f"📄 File created: {full_path}")
+        print(f"File created: {full_path}")
 
-    # --- Mensaje final ---
-    print("\n🎉 Project created successfully!")
+    print("\nProject created successfully!")
     print("\nNext steps (Windows / PowerShell):")
-    print(f"  cd {project_name}")
-    print("  python -m venv .venv")
-    print("  .venv\\Scripts\\activate")
-    print("  pip install -r requirements.txt")
+    print(f"cd {project_name}")
+    print("python -m venv .venv")
+    print(".venv\\Scripts\\activate")
+    print("pip install -r requirements.txt")
     if preset == "ui":
-        print("  python -m playwright install")
-    print("  pytest -v\n")
+        print("python -m playwright install")
+    print("pytest -v\n")
 
 
 if __name__ == "__main__":
@@ -411,6 +440,6 @@ if __name__ == "__main__":
         project_name = input("Enter a name for your new QA project: ").strip()
 
     if not project_name:
-        print("❌ ERROR: project name cannot be empty.")
+        print("ERROR: project name cannot be empty.")
     else:
         create_structure(project_name, preset=args.preset, with_ci=not args.no_ci)
