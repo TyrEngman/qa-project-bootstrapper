@@ -1,6 +1,6 @@
 
 # QA Project Bootstrapper
-
+[![Bootstrapper Sanity CI](https://github.com/TyrEngman/qa-project-bootstrapper/actions/workflows/sanity.yml/badge.svg)](https://github.com/TyrEngman/qa-project-bootstrapper/actions/workflows/sanity.yml)
 The **QA Project Bootstrapper** is a simple CLI tool that creates a ready-to-run **pytest** automation project in a new folder.
 
 It is designed to help you (or your team) go from _zero to running tests_ in a few minutes, with a clean structure and opinionated defaults. Instead of copying old repos or fighting with boilerplate, you run one command and start writing tests.
