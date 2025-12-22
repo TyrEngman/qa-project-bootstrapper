@@ -277,6 +277,100 @@ If you use this inside a paid QA Web Starter Kit PRO, you can position it as:
 
 So every new project starts consistent, organized, and automation-ready from day one.
 
+---
+
+## CLI usage and presets
+
+The bootstrapper can generate different types of QA projects using presets and flags.
+
+### Basic usage (default preset)
+
+Creates a **generic pytest** project with a simple smoke test, `pytest.ini` and a GitHub Actions workflow:
+
+```bash
+python qa_init.py my_qa_project
+then:
+cd my_qa_project
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+pytest -v
+
+Disable CI (--no-ci)
+
+If you don’t want a GitHub Actions workflow, use:
+
+python qa_init.py my_qa_project --no-ci
+
+
+This will not create the .github/workflows/ci.yml file.
+
+API preset (--preset api)
+
+Creates a project oriented to HTTP API testing with:
+
+pytest + requests
+
+tests/utils/api_client.py → small ApiClient wrapper
+
+tests/test_sample.py → smoke test using ApiClient
+
+pytest.ini with smoke and api markers
+
+An API-focused README.md
+
+Command:
+
+python qa_init.py my_api_project --preset api
+
+
+Then:
+
+cd my_api_project
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+pytest -v
+
+
+You can also combine the API preset with --no-ci:
+
+python qa_init.py my_api_project --preset api --no-ci
+
+Summary of options
+
+--preset default (por defecto)
+Generic pytest project with a smoke test and optional CI.
+
+--preset api
+API testing starter project with requests and an ApiClient.
+
+--no-ci
+Skips creating .github/workflows/ci.yml.
+
+### UI preset (`--preset ui`)
+
+Creates a project oriented to **UI / end-to-end testing** with:
+
+- `pytest`
+- `tests/test_sample.py` → UI test skeleton (no real browser yet)
+- `tests/pages/login_page.py` → Page Object stub
+- `pytest.ini` with `smoke` and `ui` markers
+
+Command:
+
+```bash
+python qa_init.py my_ui_project --preset ui
+Then:
+
+bash
+Copiar código
+cd my_ui_project
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+pytest -v
+
 ## 11. Upgrade: QA Web Starter Kit PRO
 
 This CLI focuses on generating a clean, minimal pytest project.
