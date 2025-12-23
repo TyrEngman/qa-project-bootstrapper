@@ -179,6 +179,12 @@ ready to be wired to Playwright, Selenium, or other UI driver
 CI toggle: --no-ci
 By default, all presets generate a GitHub Actions workflow at:
 
+4.## Quick demos
+
+```bash
+python qa_init.py my_ui_project --preset ui
+python qa_init.py my_api_project --preset api
+python qa_init.py my_min_project --preset minimal
 
 
 .github/workflows/ci.yml
@@ -444,7 +450,10 @@ Markers, tagging and a documented PRO structure
 
 you can upgrade to:
 
-QA Web Starter Kit PRO
+## Companion product (optional)
+
+If you want a ready-to-use, client-friendly QA framework (Playwright + Pytest) with HTML reports and debugging artifacts (trace/video/screenshots),
+check out: **QA Web Starter Kit PRO (Playwright + Pytest)**.
 → https://tyrengman.gumroad.com/l/QAKITPRO
 
 You can position them like this:
@@ -461,3 +470,6 @@ You can adapt the structure, templates and CI configuration to fit your team or 
 
 This project is released under the MIT License.
 Feel free to use it in personal, educational, or commercial projects.
+
+
+Latest release: v1.3.0
